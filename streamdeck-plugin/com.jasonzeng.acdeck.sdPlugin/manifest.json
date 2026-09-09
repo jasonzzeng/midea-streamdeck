@@ -1,0 +1,48 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "SDKVersion": 2,
+  "UUID": "com.jasonzeng.acdeck",
+  "Version": "1.0.0.0",
+  "Name": "Midea AC",
+  "Author": "Jason Zeng",
+  "Description": "Control and monitor a Midea Duo portable air conditioner. Keys show live room temperature and setpoint.",
+  "Category": "Midea AC",
+  "CategoryIcon": "assets/category",
+  "Icon": "assets/plugin-icon",
+  "CodePath": "plugin.sh",
+  "Software": { "MinimumVersion": "6.5" },
+  "OS": [{ "Platform": "mac", "MinimumVersion": "13" }],
+  "Actions": [
+    {
+      "UUID": "com.jasonzeng.acdeck.power",
+      "Name": "AC Power",
+      "Tooltip": "Toggle the air conditioner. Shows power state and room temperature.",
+      "Icon": "assets/action-power",
+      "States": [
+        { "Image": "assets/state-off", "TitleAlignment": "bottom", "FontSize": "12" },
+        { "Image": "assets/state-on", "TitleAlignment": "bottom", "FontSize": "12" }
+      ]
+    },
+    {
+      "UUID": "com.jasonzeng.acdeck.tempup",
+      "Name": "Temperature Up",
+      "Tooltip": "Raise the setpoint by 1F. Shows the current setpoint.",
+      "Icon": "assets/action-up",
+      "States": [{ "Image": "assets/state-up", "TitleAlignment": "bottom", "FontSize": "12" }]
+    },
+    {
+      "UUID": "com.jasonzeng.acdeck.tempdown",
+      "Name": "Temperature Down",
+      "Tooltip": "Lower the setpoint by 1F. Shows the current setpoint.",
+      "Icon": "assets/action-down",
+      "States": [{ "Image": "assets/state-down", "TitleAlignment": "bottom", "FontSize": "12" }]
+    },
+    {
+      "UUID": "com.jasonzeng.acdeck.status",
+      "Name": "AC Status",
+      "Tooltip": "Live room temperature, setpoint and mode. Press to refresh.",
+      "Icon": "assets/action-status",
+      "States": [{ "Image": "assets/state-status", "TitleAlignment": "middle", "FontSize": "13" }]
+    }
+  ]
+}

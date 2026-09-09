@@ -1,0 +1,9 @@
+.venv/
+config.json
+.session.json
+streamdeck/*.app
+streamdeck-plugin/plugin.log
+__pycache__/
+*.pyc
+.DS_Store
+.last_state.json
