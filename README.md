@@ -44,6 +44,36 @@ next Stream Deck restart. Logs go to `streamdeck-plugin/plugin.log`.
 confidential information"). Choose *Always Allow* -- the plugin reads the
 Midea password from the Keychain rather than storing it.
 
+## Windows
+
+The plugin runs on Windows 10+ as well, but it is **not** plug and play --
+exporting a Stream Deck profile is not enough, because a profile only stores
+key layout and settings referencing action UUIDs. If the plugin is not
+installed, those keys come up blank. The Python project has to exist on the
+Windows machine too.
+
+```powershell
+git clone https://github.com/jasonzzeng/midea-streamdeck
+cd midea-streamdeck
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Account you@example.com
+powershell -ExecutionPolicy Bypass -File .\install-plugin.ps1
+```
+
+That creates the venv, installs dependencies, discovers the AC, stores the
+password in **Windows Credential Manager** (via `keyring`, the same code path
+that uses the macOS Keychain), and links the plugin. Then export your profile
+on the Mac (right-click the profile → Export) and import it on Windows -- with
+the plugin present, the keys resolve.
+
+Not portable: `build-apps.sh` and the `.app` launchers are macOS-only. You do
+not need them -- the plugin supersedes them on both platforms.
+
+**Using one Stream Deck across both machines via a USB KVM** works, with the
+caveat that each machine needs its own full install (Stream Deck software,
+this plugin, the venv, credentials). Only the machine currently holding the
+USB sees the device, and each keeps its own profile store, so a profile edited
+on one side does not follow the cable.
+
 ## Stream Deck without the plugin
 
 ```bash

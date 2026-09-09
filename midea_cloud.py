@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from hashlib import md5, sha256
 from datetime import datetime
@@ -381,6 +382,22 @@ class CloudLAN:
 # ------------------------------------------------------------ credentials --
 
 def keychain_get(account: str) -> Optional[str]:
+    """Read the password from the OS credential store.
+
+    keyring maps to the macOS Keychain and to Windows Credential Manager, and
+    finds items created by either this code or `security add-generic-password`.
+    The subprocess path is kept as a fallback for macOS boxes without keyring.
+    """
+    try:
+        import keyring
+        if password := keyring.get_password(KEYCHAIN_SERVICE, account):
+            return password
+    except Exception:  # noqa: BLE001 - fall through to the platform tool
+        pass
+
+    if sys.platform != "darwin":
+        return None
+
     result = subprocess.run(
         ["security", "find-generic-password",
          "-s", KEYCHAIN_SERVICE, "-a", account, "-w"],
@@ -389,6 +406,18 @@ def keychain_get(account: str) -> Optional[str]:
 
 
 def keychain_set(account: str, password: str) -> None:
+    try:
+        import keyring
+        keyring.set_password(KEYCHAIN_SERVICE, account, password)
+        return
+    except Exception:  # noqa: BLE001
+        pass
+
+    if sys.platform != "darwin":
+        raise RuntimeError(
+            "Could not store the password: install keyring "
+            "(.venv/bin/pip install keyring) or set MIDEA_PASSWORD.")
+
     subprocess.run(
         ["security", "add-generic-password", "-U",
          "-s", KEYCHAIN_SERVICE, "-a", account, "-w", password],

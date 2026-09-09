@@ -1,0 +1,5 @@
+msmart-ng
+httpx
+pycryptodome
+websockets
+keyring
