@@ -30,6 +30,13 @@ refreshed every 20s and immediately after any press:
 One shared poller drives every key, so five keys still cost one cloud request
 per interval.
 
+Presses repaint the key **immediately** from local state and send the command
+behind it, so the ~0.6s cloud round trip is not in the visual path. Rapid
+temperature presses are coalesced: tapping Up four times repaints four times
+but sends a single command 0.6s after the last press, instead of four
+commands. `apply()` also reads the setpoint back out of the SetState reply, so
+no confirming `refresh()` is needed.
+
 The plugin is installed as a symlink to this repo, so edits take effect on the
 next Stream Deck restart. Logs go to `streamdeck-plugin/plugin.log`.
 
@@ -59,8 +66,9 @@ plain `.app` cannot draw on the key, so there is no live readout.
 `on` and `toggle` apply the `defaults` block from `config.json` whenever the
 unit is coming up from off, so one press lands you in a known state.
 
-The unit's confirmation beep is **off** by default. Set `"beep": true` in the
-`defaults` block if you want an audible confirmation on every command.
+The unit's confirmation beep is controlled by `"beep"` in the `defaults`
+block. Turn it on for audible confirmation that a press actually reached the
+AC -- useful precisely because the transport is cloud-based.
 
 ## Setup on a new machine
 

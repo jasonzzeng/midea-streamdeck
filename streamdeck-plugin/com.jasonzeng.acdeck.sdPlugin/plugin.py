@@ -23,6 +23,9 @@ from ac import load_config, to_celsius, to_fahrenheit
 from msmart.device import AirConditioner as AC
 
 POLL_SECONDS = 20
+# Coalesce a burst of temperature presses into one cloud command.
+TEMP_DEBOUNCE = 0.6
+TEMP_MIN, TEMP_MAX = 60, 86
 # Stream Deck restarts us on crash; keep retry pressure off the cloud.
 ERROR_BACKOFF = 30
 
@@ -53,6 +56,8 @@ class ACDeckPlugin:
         self._state: dict | None = None
         self._lock = asyncio.Lock()
         self._wake = asyncio.Event()
+        self._pending_target: int | None = None
+        self._temp_task: asyncio.Task | None = None
 
     # ---------------------------------------------------------------- device
 
@@ -82,12 +87,7 @@ class ACDeckPlugin:
                     device = await self._device_handle(fresh=bool(attempt))
                     await device.refresh()
                     if device.online:
-                        self._state = {
-                            "power": device.power_state,
-                            "target": to_fahrenheit(device.target_temperature),
-                            "room": to_fahrenheit(device.indoor_temperature),
-                            "mode": device.operational_mode.name,
-                        }
+                        self._cache(device)
                         return
                 except Exception as e:  # noqa: BLE001
                     _LOGGER.warning("refresh failed (attempt %d): %s", attempt, e)
@@ -95,7 +95,17 @@ class ACDeckPlugin:
                     midea_cloud.clear_session_cache()
             self._state = None
 
+    def _cache(self, device: AC) -> None:
+        self._state = {
+            "power": device.power_state,
+            "target": to_fahrenheit(device.target_temperature),
+            "room": to_fahrenheit(device.indoor_temperature),
+            "mode": device.operational_mode.name,
+        }
+
     async def apply(self, **changes) -> None:
+        """Push changes. msmart parses the SetState reply, so the device object
+        is already current afterwards -- no second round trip needed."""
         async with self._lock:
             try:
                 device = await self._device_handle()
@@ -107,6 +117,7 @@ class ACDeckPlugin:
                     device.target_temperature = to_celsius(changes["target_f"])
                     device.power_state = True
                 await device.apply()
+                self._cache(device)
             except Exception as e:  # noqa: BLE001
                 _LOGGER.warning("apply failed: %s", e)
 
@@ -162,23 +173,48 @@ class ACDeckPlugin:
                 pass
             self._wake.clear()
 
+    async def _flush_temp(self) -> None:
+        """Send one command for a burst of presses, after they stop."""
+        try:
+            await asyncio.sleep(TEMP_DEBOUNCE)
+        except asyncio.CancelledError:
+            return
+        target, self._pending_target = self._pending_target, None
+        if target is not None:
+            await self.apply(target_f=target)
+        await self.render()
+
     async def on_key_up(self, action: str, context: str) -> None:
         if self._state is None:
             await self.refresh()
 
         if action == POWER:
             new = not (self._state or {}).get("power", False)
+            # Repaint immediately; the cloud round trip happens behind it.
+            if self._state is not None:
+                self._state["power"] = new
+            await self.render()
             await self.apply(power=new)
-        elif action in (TEMP_UP, TEMP_DOWN):
-            current = (self._state or {}).get("target")
-            if current is None:
-                await self.refresh()
-                current = (self._state or {}).get("target") or 72
-            step = 1 if action == TEMP_UP else -1
-            await self.apply(target_f=max(60, min(86, current + step)))
+            await self.render()
 
-        await self.refresh()
-        await self.render()
+        elif action in (TEMP_UP, TEMP_DOWN):
+            base = self._pending_target or (self._state or {}).get("target")
+            if base is None:
+                await self.refresh()
+                base = (self._state or {}).get("target") or 72
+            step = 1 if action == TEMP_UP else -1
+            self._pending_target = max(TEMP_MIN, min(TEMP_MAX, base + step))
+            if self._state is not None:
+                self._state["target"] = self._pending_target
+            await self.render()
+
+            if self._temp_task and not self._temp_task.done():
+                self._temp_task.cancel()
+            self._temp_task = asyncio.create_task(self._flush_temp())
+
+        elif action == STATUS:
+            await self.refresh()
+            await self.render()
 
     async def handle(self, message: dict) -> None:
         event = message.get("event")
