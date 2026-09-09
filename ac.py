@@ -35,9 +35,13 @@ def load_config() -> dict:
 
 
 def build_device(cfg: dict) -> AC:
-    return AC(ip=cfg.get("ip", "0.0.0.0"),
-              port=cfg.get("port", 6444),
-              device_id=int(cfg["device_id"]))
+    device = AC(ip=cfg.get("ip", "0.0.0.0"),
+                port=cfg.get("port", 6444),
+                device_id=int(cfg["device_id"]))
+    # Explicit rather than relying on msmart's default: a desk button that
+    # chirps every press gets old fast. Set "beep": true to re-enable.
+    device.beep = bool((cfg.get("defaults") or {}).get("beep", False))
+    return device
 
 
 async def connect_via_cloud(cfg: dict, use_cache: bool = True) -> AC:

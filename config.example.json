@@ -7,6 +7,7 @@
   "defaults": {
     "mode": "COOL",
     "target_temperature": 70,
-    "fan_speed": "AUTO"
+    "fan_speed": "AUTO",
+    "beep": false
   }
 }

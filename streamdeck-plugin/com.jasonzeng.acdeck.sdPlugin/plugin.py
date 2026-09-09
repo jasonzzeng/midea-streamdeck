@@ -65,6 +65,7 @@ class ACDeckPlugin:
         device = AC(ip=self._cfg.get("ip", "0.0.0.0"),
                     port=self._cfg.get("port", 6444),
                     device_id=int(self._cfg["device_id"]))
+        device.beep = bool((self._cfg.get("defaults") or {}).get("beep", False))
         device._lan = midea_cloud.CloudLAN(session, device.id)
         return device
 

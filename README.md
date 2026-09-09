@@ -59,6 +59,9 @@ plain `.app` cannot draw on the key, so there is no live readout.
 `on` and `toggle` apply the `defaults` block from `config.json` whenever the
 unit is coming up from off, so one press lands you in a known state.
 
+The unit's confirmation beep is **off** by default. Set `"beep": true` in the
+`defaults` block if you want an audible confirmation on every command.
+
 ## Setup on a new machine
 
 ```bash
