@@ -91,8 +91,10 @@ class ACDeckPlugin:
                         return
                 except Exception as e:  # noqa: BLE001
                     _LOGGER.warning("refresh failed (attempt %d): %s", attempt, e)
-                    # A stale cached session looks exactly like an offline device.
-                    midea_cloud.clear_session_cache()
+                # msmart logs relay errors instead of raising them, so a stale
+                # session only shows up as an offline device. Drop the cached
+                # login so the retry really logs in again.
+                midea_cloud.clear_session_cache()
             self._state = None
 
     def _cache(self, device: AC) -> None:
@@ -105,21 +107,34 @@ class ACDeckPlugin:
 
     async def apply(self, **changes) -> None:
         """Push changes. msmart parses the SetState reply, so the device object
-        is already current afterwards -- no second round trip needed."""
+        is already current afterwards -- no second round trip needed.
+
+        Failures leave device.online False rather than raising, and the device
+        object then still holds msmart's defaults (17C, AUTO). Never cache or
+        send those: refresh first, and only cache a reply the unit answered."""
         async with self._lock:
-            try:
-                device = await self._device_handle()
-                if not device.online:
-                    await device.refresh()
-                if changes.get("power") is not None:
-                    device.power_state = changes["power"]
-                if changes.get("target_f") is not None:
-                    device.target_temperature = to_celsius(changes["target_f"])
-                    device.power_state = True
-                await device.apply()
-                self._cache(device)
-            except Exception as e:  # noqa: BLE001
-                _LOGGER.warning("apply failed: %s", e)
+            for attempt in (0, 1):
+                try:
+                    device = await self._device_handle(fresh=bool(attempt))
+                    if not device.online:
+                        await device.refresh()
+                    if device.online:
+                        if changes.get("power") is not None:
+                            device.power_state = changes["power"]
+                        if changes.get("target_f") is not None:
+                            device.target_temperature = to_celsius(changes["target_f"])
+                            device.power_state = True
+                        await device.apply()
+                        if device.online:
+                            self._cache(device)
+                            return
+                except Exception as e:  # noqa: BLE001
+                    _LOGGER.warning("apply failed (attempt %d): %s", attempt, e)
+                midea_cloud.clear_session_cache()
+            # The optimistic repaint is now a lie; show unknown until a poll
+            # succeeds.
+            self._state = None
+            self._wake.set()
 
     # ------------------------------------------------------------ stream deck
 

@@ -187,6 +187,13 @@ SEND_FUN_ID = "FC02"
 SEND_SRC = "17"
 SEND_FORMAT = "2"
 SEND_LANGUAGE = "en-US"
+# The server revoked the session, e.g. because the phone app logged in with
+# the same app identity. It will not come back, so retrying is pointless.
+INVALID_SESSION = "3106"
+
+
+class InvalidSession(CloudError):
+    """The cloud no longer accepts this session; log in again."""
 
 
 def sign_body(app_key: str, path: str, params: dict) -> str:
@@ -217,8 +224,10 @@ async def _post_form(path: str, params: dict, app_key: str) -> dict:
         )
     r.raise_for_status()
     body = r.json()
-    if str(body.get("errorCode", "0")) != "0":
-        raise CloudError(f"Code: {body.get('errorCode')}, Message: {body.get('msg')}")
+    code = str(body.get("errorCode", "0"))
+    if code != "0":
+        error = InvalidSession if code == INVALID_SESSION else CloudError
+        raise error(f"Code: {code}, Message: {body.get('msg')}")
     return body.get("result") or {}
 
 
@@ -374,6 +383,11 @@ class CloudLAN:
         for _ in range(retries):
             try:
                 return [await self._session.send(self._device_id, data)]
+            except InvalidSession as e:
+                # msmart swallows this, so drop the cached login here, where
+                # the cause is still known.
+                clear_session_cache()
+                raise ProtocolError(f"Cloud relay failed: {e}") from e
             except (CloudError, ApiError, ValueError, httpx.HTTPError) as e:
                 last_error = e
         raise ProtocolError(f"Cloud relay failed: {last_error}")
