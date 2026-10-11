@@ -4,12 +4,18 @@ param([Parameter(Mandatory=$true)][string]$Account)
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-$py = (Get-Command py -ErrorAction SilentlyContinue) ?? (Get-Command python -ErrorAction SilentlyContinue)
+# Works in Windows PowerShell 5.1, which has no ?? operator.
+$py = Get-Command py -ErrorAction SilentlyContinue
+$pyArgs = @("-3")
+if (-not $py) {
+    $py = Get-Command python -ErrorAction SilentlyContinue
+    $pyArgs = @()
+}
 if (-not $py) { throw "Install Python 3.10+ from python.org first." }
 
 Write-Host "Creating .venv..."
-& $py.Source -3 -m venv .venv 2>$null
-if (-not (Test-Path ".venv\Scripts\python.exe")) { & $py.Source -m venv .venv }
+& $py.Source @pyArgs -m venv .venv
+if (-not (Test-Path ".venv\Scripts\python.exe")) { throw "Could not create .venv with $($py.Source)." }
 
 Write-Host "Installing dependencies..."
 & ".venv\Scripts\python.exe" -m pip install --quiet --upgrade pip

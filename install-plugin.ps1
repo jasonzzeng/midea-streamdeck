@@ -19,7 +19,14 @@ Get-Process "StreamDeck" -ErrorAction SilentlyContinue | ForEach-Object {
     if (-not $_.HasExited) { $_ | Stop-Process -Force }
 }
 
-if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+# plugin.bat can't reach ..\..\.venv through the junction, so link it in.
+$venvLink = Join-Path $src ".venv"
+if (-not (Test-Path $venvLink)) {
+    cmd /c mklink /J "$venvLink" (Join-Path $PSScriptRoot ".venv") | Out-Null
+}
+
+# Remove only the junction itself; a recursive delete would follow it into the repo.
+if (Test-Path $dest) { cmd /c rmdir "$dest" }
 
 # A directory junction keeps the plugin pointed at the repo, like the mac symlink.
 cmd /c mklink /J "$dest" "$src" | Out-Null
