@@ -40,7 +40,12 @@ def build_device(cfg: dict) -> AC:
                 device_id=int(cfg["device_id"]))
     # Explicit rather than relying on msmart's default: a desk button that
     # chirps every press gets old fast. Set "beep": true to re-enable.
-    device.beep = bool((cfg.get("defaults") or {}).get("beep", False))
+    beep = bool((cfg.get("defaults") or {}).get("beep", False))
+    # Newer msmart-ng renamed beep to sound; older installs only have beep.
+    if hasattr(type(device), "sound"):
+        device.sound = beep
+    else:
+        device.beep = beep
     return device
 
 
